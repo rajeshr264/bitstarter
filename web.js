@@ -11,13 +11,14 @@ app.get('/', function(request, response) {
 	}
 
 	fileContents.write(data,"ascii");
-//	console.log(fileContents.toString("ascii"));
+	console.log(fileContents.toString("ascii"));
     });
 		    
+    console.log(fileContents.toString("ascii"));
     response.send(fileContents.toString("ascii"));
 });
 
 var port = process.env.PORT || 5000;
 app.listen(port, function() {
   console.log("Listening on " + port);
-});
+}); 
