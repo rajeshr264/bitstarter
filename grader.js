@@ -26,6 +26,7 @@ var program = require('commander');
 var cheerio = require('cheerio');
 var HTMLFILE_DEFAULT = "index.html";
 var CHECKSFILE_DEFAULT = "checks.json";
+var rest = require('restler');
 
 var assertFileExists = function(infile) {
     var instr = infile.toString();
@@ -65,8 +66,24 @@ if(require.main == module) {
     program
         .option('-c, --checks <check_file>', 'Path to checks.json', clone(assertFileExists), CHECKSFILE_DEFAULT)
         .option('-f, --file <html_file>', 'Path to index.html', clone(assertFileExists), HTMLFILE_DEFAULT)
+        .option('-u, --url <url>', 'URL')
         .parse(process.argv);
+
+    if (program.url) {
+	// save the HTML code returned by the URL to a file. Set program.file to it.
+	rest.get(program.url).on('complete', function(data) { 
+		var website = "./mybitstarter_website.html";
+		console.log("Downloaded my heroku website to " + website + "\n");
+
+		// save the HTML stream to a local file
+		fs.writeFileSync(website,data);
+
+		// set the program.file variable to point to the downloaded HTML file of my website
+		program.file = website;
+	}); 
+   }
     var checkJson = checkHtmlFile(program.file, program.checks);
+
     var outJson = JSON.stringify(checkJson, null, 4);
     console.log(outJson);
 } else {
