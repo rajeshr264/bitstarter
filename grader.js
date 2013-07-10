@@ -37,23 +37,44 @@ var assertFileExists = function(infile) {
     return instr;
 };
 
-var cheerioHtmlFile = function(htmlfile) {
-    return cheerio.load(fs.readFileSync(htmlfile));
+var cheerioHtmlFile = function(inputArg) {
+    return cheerio.load(fs.readFileSync(inputArg));
+    
 };
 
 var loadChecks = function(checksfile) {
     return JSON.parse(fs.readFileSync(checksfile));
 };
 
-var checkHtmlFile = function(htmlfile, checksfile) {
-    $ = cheerioHtmlFile(htmlfile);
+var runChecks = function($,checksfile) {
     var checks = loadChecks(checksfile).sort();
     var out = {};
     for(var ii in checks) {
-        var present = $(checks[ii]).length > 0;
-        out[checks[ii]] = present;
+	var present = $(checks[ii]).length > 0;
+	out[checks[ii]] = present;
     }
     return out;
+}
+
+var checkURL = function(url,checksfile) {
+
+    rest.get(url).on('complete', function(data) { 
+	if (data instanceof Error) {
+	    console.log('Error: URL ' + inputArg + ' not valid or responding.');
+	    process.exit(-1);
+	} else {
+	    // success
+	    $ = cheerio.load(data);
+	    var checkJson = runChecks($,checksfile);
+	    var outJson = JSON.stringify(checkJson, null, 4);
+	    console.log(outJson);
+	}
+    });
+}
+    
+var checkHtmlFile = function(inputArg, checksfile) {
+    $ = cheerioHtmlFile(inputArg);
+    return runChecks($,checksfile);
 };
 
 var clone = function(fn) {
@@ -63,9 +84,6 @@ var clone = function(fn) {
 };
 
 if(require.main == module) {
-    var html_file = "./mybitstarter_website.html";
-    var retry_counter = 0;
-
     program
         .option('-c, --checks <check_file>', 'Path to checks.json', clone(assertFileExists), CHECKSFILE_DEFAULT)
         .option('-f, --file <html_file>', 'Path to index.html', clone(assertFileExists), HTMLFILE_DEFAULT)
@@ -73,41 +91,13 @@ if(require.main == module) {
         .parse(process.argv);
 
     if (program.url) {
-	//console.log("URL: " + program.url + "\n");
-
-	// save the HTML code returned by the URL to a file. Set program.file to it.
-	rest.get(program.url).on('complete', function(data) { 
-	    if (data instanceof Error) {
-		if (retry_counter < 3) {
-		    this.retry(3000);// wait 3 seconds
-		    retry_counter += 1;
-		    console.log('Error: URL ' + program.url + ' not valid or responding. Trying to reach...');
-		}
-		else {
-		    console.log("Error: Exiting after three tries.");
-		    process.exit(-1);
-		}
-	    } else {
-		// save the HTML stream to a local file
-		var buf = new Buffer(data);
-		fs.writeFile(html_file, buf.toString() + "\n" , function (err) {
-		    if (err) {
-			throw err;
-		    }
-		    //console.log("Reading from HTML file: " + html_file + "\n");
-		    var checkJson = checkHtmlFile(html_file, program.checks);
-		    var outJson = JSON.stringify(checkJson, null, 4);
-		    console.log(outJson);
-		});
-	    }});
+	checkURL(program.url, program.checks);
+    } else {
+	var checkJson = checkHtmlFile(program.file, program.checks);
+	var outJson = JSON.stringify(checkJson, null, 4);
+	console.log(outJson);
     }
-   else {
-	html_file = program.file;
-       //console.log("Reading from HTML file: " + html_file + "\n");
-       var checkJson = checkHtmlFile(html_file, program.checks);
-       var outJson = JSON.stringify(checkJson, null, 4);
-       console.log(outJson);
-   }
+   
 } else {
     exports.checkHtmlFile = checkHtmlFile;
 }
